@@ -1,62 +1,85 @@
-import React, { useState } from 'react';
-import { StyleSheet, View, Text, Button, TextInput } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { StyleSheet, View, Text, Button, TextInput, FlatList } from 'react-native';
 import Modal from "react-native-modal";
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import "react-native-get-random-values";
+import { nanoid } from "nanoid";
 
 export default function Profil() {
     const [isModalVisible, setModalVisible] = useState(false);
     const [email, setEmail] = useState('');
-    const [age, setAge] = useState(null);
+    const [age, setAge] = useState('');
+    const [data, setData] = useState<any>([]);
 
     const toggleModal = () => {
         setModalVisible(!isModalVisible);
     };
 
-
+    const getAllKeys = async () => {
+        setData([]);
+        AsyncStorage.getAllKeys()
+            .then((keys) => {
+                keys.forEach((key) => {
+                    getData(key);
+                });
+            })
+    };
 
     const save = async () => {
-
-        const USER = {
-            email: email,
-            age: age,
-
-        }
-
         try {
-            await AsyncStorage.setItem('user', JSON.stringify(USER))
-
-            const currentUser = await AsyncStorage.getItem('user')
-
-            console.log(currentUser)
-
+            await AsyncStorage.setItem(nanoid(), JSON.stringify({ email, age }))
+            getAllKeys();
             toggleModal();
 
-        } catch {
-
+        } catch (error) {
+            console.log(error);
         }
     }
 
+    const getData = async (key: string) => {
+        const data = await AsyncStorage.getItem(key);
+        if (data) {
+            const newItem = { key, data: JSON.parse(data) };
+            setData((prevState: any) => [...prevState, newItem]);
+        }
+    };
 
-    const remove = async () => {
+
+    const remove = async (key: string) => {
         try {
-            await AsyncStorage.removeItem('user')
+            await AsyncStorage.removeItem(key)
+            getAllKeys();
             alert('Berhasil Menghapus Data')
         } catch (e) {
             console.log(e)
         }
-
-        console.log('Done.')
     }
+
+    useEffect(() => {
+        getAllKeys();
+    }, [])
 
     return (
         <View style={styles.container}>
             <Button title="Tampilkan" onPress={toggleModal} />
 
             <View>
-                <Text>{email}</Text>
-                <Text>{age}</Text>
+                <FlatList
 
-                <Button title="hapus" onPress={remove} />
+                    data={data}
+                    keyExtractor={(item) => item.key}
+                    renderItem={({ item }) => (
+                        <View key={item.id} style={styles.section}>
+                            <Text> Email : {item.data.email}</Text>
+                            <Text>Age : {item.data.age}</Text>
+                            <Button title="hapus" onPress={() => remove(item.key)} />
+                        </View>
+
+
+                    )}
+                />
+
+
             </View>
 
 
@@ -118,5 +141,11 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderRadius: 10,
         padding: 10,
+    },
+
+    section: {
+        marginTop: 20,
+        flexDirection: 'row',
+        justifyContent: 'space-around'
     },
 });
